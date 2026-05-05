@@ -80,7 +80,3 @@ This repository is licensed under [PolyForm Noncommercial 1.0.0](./LICENSE).
 - Non-commercial use, modification, and redistribution are allowed
 - Commercial resale or monetization of this project is not allowed
 - If you need commercial rights, contact the author for a separate license
-
-## Social preview
-
-Use `./assets/social-preview.png` for the GitHub social preview image.
