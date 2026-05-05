@@ -73,6 +73,17 @@ http://127.0.0.1:8080/index.html
 - 多台设备只访问网页，不要让每台设备直连 Companion
 - 如果没有 Apple Developer ID，其他 Mac 首次打开时可能需要手动放行
 
+## Third-party dependencies
+
+This project depends on Bitfocus Companion as an external runtime data source.
+
+- This repository does not include Companion source code.
+- The project communicates with Companion over HTTP at runtime.
+- Companion is a separate third-party product and is not licensed by this repository.
+- Any use of Companion remains subject to Companion's own license, terms, and configuration.
+
+If you redistribute this project, make sure to also comply with the terms of any third-party software you install or bundle alongside it.
+
 ## 许可证
 
 未指定许可证。发布前请补一个合适的 LICENSE 文件。
