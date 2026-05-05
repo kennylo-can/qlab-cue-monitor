@@ -1,5 +1,7 @@
 # QLab Cue Monitor
 
+![QLab Cue Monitor cover](./assets/cover-source.png)
+
 QLab Cue Monitor is a local cue dashboard for live shows.
 
 - The menu-bar app starts and stops the local proxy service
@@ -78,3 +80,7 @@ This repository is licensed under [PolyForm Noncommercial 1.0.0](./LICENSE).
 - Non-commercial use, modification, and redistribution are allowed
 - Commercial resale or monetization of this project is not allowed
 - If you need commercial rights, contact the author for a separate license
+
+## Social preview
+
+Use `./assets/social-preview.png` for the GitHub social preview image.
