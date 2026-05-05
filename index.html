@@ -1,0 +1,2068 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>QLab Cue Monitor</title>
+  <style>
+    :root {
+      --bg: #040608;
+      --panel: rgba(255,255,255,0.055);
+      --line: rgba(255,255,255,0.12);
+      --text: #f7f8fb;
+      --muted: rgba(247,248,251,0.48);
+      --blue: #39bfff;
+      --red: #ff4646;
+      --yellow: #ffd166;
+      --green: #48e08a;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(circle at 50% 35%, rgba(57,191,255,0.13), transparent 36%),
+        linear-gradient(135deg, rgba(255,255,255,0.045), transparent 44%);
+      pointer-events: none;
+    }
+
+    .frame {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      padding: 56px 72px;
+      display: grid;
+      grid-template-rows: 96px 1fr 148px;
+      gap: 24px;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 24px;
+      align-items: center;
+      padding-bottom: 16px;
+    }
+
+    .label {
+      font-size: 20px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .cue-name {
+      font-size: clamp(42px, 4.4vw, 84px);
+      line-height: 1.08;
+      font-weight: 780;
+      letter-spacing: -0.045em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      padding-bottom: 0.08em;
+    }
+
+    .system-time {
+      min-width: 152px;
+      width: fit-content;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      font-size: 28px;
+      font-weight: 720;
+      letter-spacing: -0.02em;
+      color: rgba(247,248,251,0.9);
+      justify-self: end;
+      align-self: start;
+      padding: 10px 14px 9px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.13);
+      background: rgba(255,255,255,0.06);
+      box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+      backdrop-filter: blur(12px);
+    }
+
+    .status {
+      min-width: 74px;
+      padding: 7px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel);
+      text-align: center;
+      font-size: 10px;
+      font-weight: 760;
+      letter-spacing: 0.12em;
+      color: var(--green);
+    }
+
+    .status-stack {
+      position: fixed;
+      right: calc(28px + env(safe-area-inset-right));
+      bottom: calc(18px + env(safe-area-inset-bottom));
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      z-index: 11;
+    }
+
+    .mode-badge {
+      padding: 6px 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.045);
+      color: rgba(247,248,251,0.7);
+      font-size: 8px;
+      font-weight: 760;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .mode-badge.shared {
+      color: rgba(72,224,138,0.95);
+      border-color: rgba(72,224,138,0.35);
+      background: rgba(72,224,138,0.12);
+      box-shadow: 0 0 24px rgba(72,224,138,0.12);
+    }
+
+    .mode-badge.direct {
+      color: rgba(57,191,255,0.95);
+      border-color: rgba(57,191,255,0.35);
+      background: rgba(57,191,255,0.12);
+      box-shadow: 0 0 24px rgba(57,191,255,0.12);
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: 1.36fr 0.64fr;
+      gap: 34px;
+      min-height: 0;
+    }
+
+    .timer-card {
+      border: 1px solid var(--line);
+      border-radius: 38px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.024));
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 46px;
+      box-shadow: 0 30px 90px rgba(0,0,0,0.35);
+    }
+
+    .timer-label {
+      color: var(--muted);
+      font-size: 28px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      margin-bottom: 18px;
+    }
+
+    .remaining {
+      font-variant-numeric: tabular-nums;
+      font-size: clamp(132px, 15vw, 286px);
+      line-height: 0.9;
+      font-weight: 840;
+      letter-spacing: -0.08em;
+      color: var(--blue);
+      text-shadow: 0 0 38px rgba(57,191,255,0.2);
+    }
+
+    .progress-wrap {
+      width: min(820px, 90%);
+      margin-top: 38px;
+    }
+
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 17px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .progress-track {
+      width: 100%;
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.11);
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+
+    .progress-bar {
+      width: 0%;
+      height: 100%;
+      border-radius: 999px;
+      background: var(--blue);
+      box-shadow: 0 0 24px rgba(57,191,255,0.3);
+      transition: width 0.2s linear, background 0.2s linear;
+    }
+
+    .side {
+      display: grid;
+      grid-template-rows: 1fr 1fr;
+      gap: 34px;
+    }
+
+    .small-card {
+      border: 1px solid var(--line);
+      border-radius: 32px;
+      background: var(--panel);
+      padding: 34px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      min-width: 0;
+    }
+
+    .small-title {
+      color: var(--muted);
+      font-size: 22px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+
+    .elapsed, .cue-number {
+      font-variant-numeric: tabular-nums;
+      font-size: clamp(52px, 5.2vw, 96px);
+      font-weight: 780;
+      letter-spacing: -0.055em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .state-value {
+      font-size: clamp(48px, 4.8vw, 88px);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      color: var(--green);
+    }
+
+    .bottom {
+      padding-top: 30px;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      align-items: flex-start;
+    }
+
+    .next-tag {
+      color: var(--muted);
+      font-size: 22px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+
+    .next-line {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      min-width: 0;
+      flex-wrap: nowrap;
+    }
+
+    .cue-number--next {
+      font-size: clamp(22px, 2.4vw, 40px);
+      font-weight: 680;
+      letter-spacing: -0.03em;
+      color: rgba(247,248,251,0.62);
+      flex: 0 0 auto;
+    }
+
+    .next-cue {
+      font-size: clamp(30px, 3vw, 54px);
+      font-weight: 680;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: rgba(247,248,251,0.86);
+      min-width: 0;
+    }
+
+    .warning .remaining,
+    .warning .state-value {
+      color: var(--yellow);
+      text-shadow: 0 0 38px rgba(255,209,102,0.18);
+    }
+    .warning .progress-bar { background: var(--yellow); box-shadow: 0 0 24px rgba(255,209,102,0.24); }
+
+    .danger .remaining,
+    .danger .state-value {
+      color: var(--red);
+      text-shadow: 0 0 44px rgba(255,70,70,0.24);
+    }
+    .danger .progress-bar { background: var(--red); box-shadow: 0 0 26px rgba(255,70,70,0.28); }
+
+    .idle .status,
+    .idle .state-value { color: var(--muted); }
+    .idle .progress-bar { width: 0%; background: var(--muted); box-shadow: none; }
+
+    .connection {
+      position: fixed;
+      right: calc(28px + env(safe-area-inset-right));
+      bottom: calc(6px + env(safe-area-inset-bottom));
+      font-size: 10px;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 0.05em;
+    }
+
+    .settings-toggle {
+      position: fixed;
+      left: calc(24px + env(safe-area-inset-left));
+      bottom: calc(22px + env(safe-area-inset-bottom));
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+      color: rgba(255,255,255,0.55);
+      cursor: pointer;
+      font-size: 18px;
+      backdrop-filter: blur(12px);
+    }
+
+    .settings-panel {
+      position: fixed;
+      left: calc(24px + env(safe-area-inset-left));
+      bottom: calc(76px + env(safe-area-inset-bottom));
+      width: 390px;
+      padding: 22px;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 24px;
+      background: rgba(12,16,22,0.92);
+      backdrop-filter: blur(16px);
+      box-shadow: 0 24px 80px rgba(0,0,0,0.36);
+      display: none;
+      z-index: 10;
+    }
+
+    .settings-panel.open { display: block; }
+
+    .settings-title {
+      font-size: 18px;
+      font-weight: 760;
+      margin-bottom: 16px;
+    }
+
+    .settings-row { margin-bottom: 14px; }
+
+    .settings-row label {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 7px;
+    }
+
+    .settings-row input {
+      width: 100%;
+      height: 42px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      padding: 0 12px;
+      font-size: 15px;
+      outline: none;
+    }
+
+    .settings-note {
+      margin-top: 8px;
+      color: rgba(247,248,251,0.52);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .settings-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .settings-actions button {
+      flex: 1;
+      height: 40px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(57,191,255,0.16);
+      color: var(--text);
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .settings-actions button.secondary {
+      background: rgba(255,255,255,0.06);
+      color: rgba(247,248,251,0.68);
+    }
+
+    @media (min-width: 821px) and (max-aspect-ratio: 4/3) {
+      .frame {
+        padding: 30px 34px 24px;
+        grid-template-rows: 84px 1fr 100px;
+        gap: 16px;
+      }
+
+      .topbar {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 16px;
+        padding-bottom: 10px;
+        align-items: center;
+      }
+
+      .topbar > div:first-child {
+        min-width: 0;
+      }
+
+      .label {
+        font-size: 13px;
+        letter-spacing: 0.17em;
+        margin-bottom: 6px;
+      }
+
+      .cue-name {
+        font-size: clamp(30px, 4vw, 56px);
+        line-height: 1.03;
+      }
+
+      #headerCueNumber {
+        font-size: 20px !important;
+        align-self: flex-start;
+        padding-top: 4px;
+      }
+
+      .system-time {
+        min-width: 138px;
+        font-size: 24px;
+        text-align: center;
+        justify-self: end;
+        align-self: start;
+        padding: 10px 14px 9px;
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,0.13);
+        background: rgba(255,255,255,0.06);
+        box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+        backdrop-filter: blur(12px);
+      }
+
+      .status-stack {
+        position: fixed;
+        right: calc(18px + env(safe-area-inset-right));
+        bottom: calc(18px + env(safe-area-inset-bottom));
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 6px;
+        z-index: 11;
+      }
+
+      .status {
+        min-width: 82px;
+        padding: 7px 10px;
+        font-size: 11px;
+      }
+
+      .mode-badge {
+        padding: 6px 9px;
+        font-size: 9px;
+      }
+
+      .main {
+        grid-template-columns: minmax(0, 1.36fr) minmax(230px, 0.64fr);
+        gap: 18px;
+      }
+
+      .timer-card {
+        padding: 26px 22px;
+        border-radius: 26px;
+      }
+
+      .timer-label {
+        font-size: 16px;
+        margin-bottom: 12px;
+      }
+
+      .remaining {
+        font-size: clamp(88px, 13vw, 168px);
+        letter-spacing: -0.075em;
+      }
+
+      .progress-wrap {
+        width: min(720px, 92%);
+        margin-top: 20px;
+      }
+
+      .progress-meta {
+        font-size: 11px;
+        margin-bottom: 8px;
+      }
+
+      .progress-track {
+        height: 8px;
+      }
+
+      .side {
+        gap: 18px;
+      }
+
+      .small-card {
+        padding: 18px 16px;
+        border-radius: 22px;
+      }
+
+      .small-title {
+        font-size: 12px;
+        margin-bottom: 8px;
+      }
+
+      .elapsed,
+      .cue-number {
+        font-size: clamp(32px, 4vw, 52px);
+      }
+
+      .state-value {
+        font-size: clamp(30px, 3.8vw, 46px);
+      }
+
+      .bottom {
+        padding-top: 24px;
+        gap: 1px;
+      }
+
+      .next-tag {
+        font-size: 11px;
+      }
+
+      .next-line {
+        gap: 8px;
+        flex-wrap: nowrap;
+      }
+
+      .cue-number--next {
+        font-size: clamp(18px, 1.9vw, 30px);
+      }
+
+      .next-cue {
+        font-size: clamp(22px, 2.5vw, 38px);
+        white-space: nowrap;
+      }
+
+      .connection-id {
+        font-size: 12px;
+      }
+
+      .connection {
+        right: calc(18px + env(safe-area-inset-right));
+        bottom: calc(6px + env(safe-area-inset-bottom));
+        font-size: 9px;
+        max-width: 42vw;
+      }
+
+      .settings-toggle {
+        left: calc(16px + env(safe-area-inset-left));
+        bottom: calc(12px + env(safe-area-inset-bottom));
+        width: 36px;
+        height: 36px;
+        font-size: 15px;
+      }
+
+      .settings-panel {
+        left: calc(16px + env(safe-area-inset-left));
+        bottom: calc(54px + env(safe-area-inset-bottom));
+        width: 320px;
+        padding: 16px;
+      }
+    }
+
+    @media (max-width: 820px) {
+      .frame {
+        min-height: 100vh;
+        height: auto;
+        padding: 22px 16px 82px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .topbar {
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+        padding-bottom: 0;
+        align-items: start;
+      }
+
+      .topbar > div:first-child {
+        min-width: 0;
+        grid-column: 1 / -1;
+      }
+
+      .label {
+        font-size: 11px;
+        letter-spacing: 0.15em;
+        margin-bottom: 6px;
+      }
+
+      .cue-name {
+        font-size: clamp(26px, 8.4vw, 42px);
+        white-space: normal;
+        line-height: 1.04;
+        letter-spacing: -0.04em;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
+
+      #headerCueNumber {
+        font-size: 18px !important;
+        align-self: flex-start;
+        padding-top: 4px;
+      }
+
+      .system-time {
+        min-width: auto;
+        text-align: left;
+        font-size: 20px;
+        grid-column: 1;
+      }
+
+      .status {
+        min-width: 88px;
+        padding: 9px 12px;
+        font-size: 13px;
+        grid-column: 1;
+        justify-self: end;
+      }
+
+      .status-stack {
+        grid-column: 2;
+        align-self: start;
+      }
+
+      .mode-badge {
+        padding: 7px 10px;
+        font-size: 9px;
+      }
+
+      .main {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .timer-card {
+        border-radius: 24px;
+        padding: 24px 16px;
+      }
+
+      .timer-label {
+        font-size: 14px;
+        letter-spacing: 0.18em;
+        margin-bottom: 10px;
+      }
+
+      .remaining {
+        font-size: clamp(68px, 22vw, 124px);
+        line-height: 0.95;
+        letter-spacing: -0.075em;
+      }
+
+      .progress-wrap {
+        width: 100%;
+        margin-top: 20px;
+      }
+
+      .progress-meta {
+        font-size: 11px;
+        margin-bottom: 8px;
+      }
+
+      .progress-track {
+        height: 8px;
+      }
+
+      .side {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .small-card {
+        border-radius: 20px;
+        padding: 18px 14px;
+        min-height: 104px;
+      }
+
+      .small-title {
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        margin-bottom: 8px;
+      }
+
+      .elapsed,
+      .state-value {
+        font-size: clamp(28px, 8.5vw, 42px);
+        letter-spacing: -0.04em;
+      }
+
+      .bottom {
+        grid-template-columns: 1fr auto;
+        gap: 8px 12px;
+        padding-top: 10px;
+      }
+
+      .next-tag {
+        font-size: 11px;
+        letter-spacing: 0.16em;
+        grid-column: 1 / -1;
+      }
+
+      .next-cue {
+        font-size: clamp(20px, 6.8vw, 32px);
+        white-space: normal;
+        line-height: 1.08;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
+
+      .connection-id {
+        font-size: 12px;
+        align-self: start;
+        padding-top: 5px;
+      }
+
+      .connection {
+        right: calc(16px + env(safe-area-inset-right));
+        bottom: calc(14px + env(safe-area-inset-bottom));
+        max-width: 62vw;
+        font-size: 10px;
+        text-align: right;
+      }
+
+      .settings-toggle {
+        left: calc(14px + env(safe-area-inset-left));
+        bottom: calc(12px + env(safe-area-inset-bottom));
+        width: 36px;
+        height: 36px;
+        font-size: 15px;
+      }
+
+      .settings-panel {
+        left: calc(12px + env(safe-area-inset-left));
+        right: calc(12px + env(safe-area-inset-right));
+        bottom: calc(58px + env(safe-area-inset-bottom));
+        width: auto;
+        padding: 16px;
+        border-radius: 18px;
+      }
+    }
+
+    @media (max-width: 820px) and (orientation: landscape) {
+      .frame {
+        min-height: 100vh;
+        height: auto;
+        padding: 20px 22px 18px;
+        grid-template-rows: 78px 1fr 82px;
+        gap: 14px;
+      }
+
+      .topbar {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 14px;
+        padding-bottom: 8px;
+        align-items: center;
+      }
+
+      .topbar > div:first-child {
+        min-width: 0;
+      }
+
+      .label {
+        font-size: 11px;
+        letter-spacing: 0.17em;
+        margin-bottom: 5px;
+      }
+
+      .cue-name {
+        font-size: clamp(24px, 4vw, 42px);
+        white-space: normal;
+        line-height: 1.03;
+        letter-spacing: -0.045em;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
+
+      #headerCueNumber {
+        font-size: 16px !important;
+        align-self: flex-start;
+        padding-top: 4px;
+      }
+
+      .system-time {
+        min-width: 118px;
+        width: fit-content;
+        text-align: center;
+        font-size: 16px;
+        font-weight: 720;
+        letter-spacing: -0.01em;
+        line-height: 1;
+        justify-self: end;
+        align-self: start;
+        padding: 9px 12px 8px;
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,0.13);
+        background: rgba(255,255,255,0.06);
+        box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+        backdrop-filter: blur(12px);
+      }
+
+      .status-stack {
+        position: static;
+        position: fixed;
+        right: calc(12px + env(safe-area-inset-right));
+        bottom: calc(18px + env(safe-area-inset-bottom));
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 6px;
+        z-index: 11;
+      }
+
+      .status {
+        min-width: 74px;
+        padding: 7px 9px;
+        font-size: 10px;
+      }
+
+      .mode-badge {
+        padding: 6px 8px;
+        font-size: 8px;
+      }
+
+      .main {
+        display: grid;
+        grid-template-columns: minmax(0, 1.3fr) minmax(220px, 0.7fr);
+        gap: 14px;
+        align-items: stretch;
+      }
+
+      .timer-card {
+        border-radius: 24px;
+        padding: 20px 16px;
+      }
+
+      .timer-label {
+        font-size: 12px;
+        letter-spacing: 0.16em;
+        margin-bottom: 10px;
+      }
+
+      .remaining {
+        font-size: clamp(72px, 14vw, 132px);
+        line-height: 0.92;
+        letter-spacing: -0.075em;
+      }
+
+      .progress-wrap {
+        width: min(100%, 700px);
+        margin-top: 16px;
+      }
+
+      .progress-meta {
+        font-size: 11px;
+        margin-bottom: 8px;
+      }
+
+      .progress-track {
+        height: 8px;
+      }
+
+      .side {
+        display: grid;
+        grid-template-rows: 1fr 1fr;
+        gap: 14px;
+      }
+
+      .small-card {
+        border-radius: 18px;
+        padding: 14px 12px;
+        min-height: 0;
+      }
+
+      .small-title {
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        margin-bottom: 6px;
+      }
+
+      .elapsed,
+      .state-value {
+        font-size: clamp(24px, 4.5vw, 40px);
+        letter-spacing: -0.04em;
+      }
+
+      .bottom {
+        padding-top: 14px;
+        gap: 2px;
+      }
+
+      .next-tag {
+        font-size: 10px;
+        letter-spacing: 0.14em;
+      }
+
+      .next-line {
+        gap: 8px;
+        flex-wrap: nowrap;
+      }
+
+      .cue-number--next {
+        font-size: clamp(16px, 1.8vw, 24px);
+        letter-spacing: -0.01em;
+      }
+
+      .next-cue {
+        font-size: clamp(20px, 2.8vw, 32px);
+        white-space: nowrap;
+      }
+
+      .connection {
+        right: calc(12px + env(safe-area-inset-right));
+        bottom: calc(8px + env(safe-area-inset-bottom));
+        max-width: 42vw;
+        font-size: 10px;
+        letter-spacing: 0.06em;
+      }
+
+      .settings-toggle {
+        left: calc(12px + env(safe-area-inset-left));
+        bottom: calc(12px + env(safe-area-inset-bottom));
+        width: 36px;
+        height: 36px;
+        font-size: 15px;
+      }
+
+      .settings-panel {
+        left: calc(12px + env(safe-area-inset-left));
+        bottom: calc(54px + env(safe-area-inset-bottom));
+        width: 320px;
+        padding: 16px;
+        border-radius: 18px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .frame {
+        padding: 18px 12px 74px;
+        gap: 12px;
+      }
+
+      .topbar {
+        gap: 8px;
+      }
+
+      .timer-card {
+        padding: 22px 12px;
+      }
+
+      .side {
+        grid-template-columns: 1fr;
+      }
+
+      .small-card {
+        min-height: 90px;
+      }
+
+      .settings-actions {
+        flex-direction: column;
+      }
+    }
+
+    @media (orientation: portrait) and (min-width: 700px) {
+      .frame {
+        height: 100dvh;
+        min-height: 100dvh;
+        overflow: hidden;
+        padding: 16px 16px 16px;
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        align-content: start;
+        gap: 10px;
+      }
+
+      .topbar {
+        grid-template-columns: 1fr auto;
+        grid-template-areas: "cue time";
+        gap: 8px 12px;
+        padding-bottom: 0;
+        align-items: start;
+      }
+
+      .topbar > div:first-child {
+        min-width: 0;
+        grid-area: cue;
+      }
+
+      .label {
+        font-size: 11px;
+        letter-spacing: 0.15em;
+        margin-bottom: 6px;
+      }
+
+      .cue-name {
+        font-size: clamp(30px, 5.6vw, 54px);
+        white-space: normal;
+        line-height: 1.1;
+        letter-spacing: -0.04em;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        padding-bottom: 0.1em;
+      }
+
+      #headerCueNumber {
+        font-size: 18px !important;
+        align-self: flex-start;
+        padding-top: 4px;
+      }
+
+      .system-time {
+        min-width: 132px;
+        width: fit-content;
+        text-align: center;
+        font-size: 18px;
+        font-weight: 680;
+        letter-spacing: -0.01em;
+        line-height: 1;
+        grid-area: time;
+        justify-self: end;
+        align-self: start;
+        padding: 10px 12px 9px;
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,0.13);
+        background: rgba(255,255,255,0.06);
+        box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+        backdrop-filter: blur(12px);
+      }
+
+      .status-stack {
+        position: fixed;
+        right: calc(16px + env(safe-area-inset-right));
+        bottom: calc(14px + env(safe-area-inset-bottom));
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 6px;
+        z-index: 11;
+      }
+
+      .status {
+        min-width: 74px;
+        padding: 7px 10px;
+        font-size: 10px;
+      }
+
+      .mode-badge {
+        padding: 6px 8px;
+        font-size: 8px;
+      }
+
+      .main {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        align-items: start;
+        min-height: 0;
+      }
+
+      .timer-card {
+        grid-column: 1 / -1;
+        border-radius: 24px;
+        padding: 24px 20px;
+        min-height: 34vh;
+      }
+
+      .timer-label {
+        font-size: 14px;
+        letter-spacing: 0.18em;
+        margin-bottom: 8px;
+      }
+
+      .remaining {
+        font-size: clamp(64px, 15vw, 112px);
+        line-height: 0.94;
+        letter-spacing: -0.08em;
+      }
+
+      .progress-wrap {
+        width: 100%;
+        margin-top: 14px;
+      }
+
+      .progress-meta {
+        font-size: 10px;
+        margin-bottom: 6px;
+      }
+
+      .progress-track {
+        height: 8px;
+      }
+
+      .side {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+        grid-column: 1 / -1;
+      }
+
+      .small-card {
+        border-radius: 20px;
+        padding: 16px 16px;
+        min-height: 92px;
+      }
+
+      .small-title {
+        font-size: 11px;
+        letter-spacing: 0.12em;
+        margin-bottom: 6px;
+      }
+
+      .elapsed,
+      .state-value {
+        font-size: clamp(24px, 4.8vw, 38px);
+        letter-spacing: -0.04em;
+      }
+
+      .bottom {
+        grid-template-columns: auto 1fr auto;
+        gap: 4px 8px;
+        padding-top: 6px;
+        align-items: center;
+      }
+
+      .next-tag {
+        font-size: 11px;
+        letter-spacing: 0.16em;
+      }
+
+      .next-cue {
+        font-size: clamp(20px, 4vw, 34px);
+        white-space: nowrap;
+      }
+
+      .connection-id {
+        font-size: 12px;
+      }
+
+      .connection {
+        right: calc(12px + env(safe-area-inset-right));
+        bottom: calc(6px + env(safe-area-inset-bottom));
+        max-width: 64vw;
+        font-size: 9px;
+        letter-spacing: 0.05em;
+      }
+
+      .settings-toggle {
+        left: calc(12px + env(safe-area-inset-left));
+        bottom: calc(10px + env(safe-area-inset-bottom));
+        width: 36px;
+        height: 36px;
+        font-size: 15px;
+      }
+
+      .settings-panel {
+        left: calc(12px + env(safe-area-inset-left));
+        right: calc(12px + env(safe-area-inset-right));
+        bottom: calc(56px + env(safe-area-inset-bottom));
+        width: auto;
+        max-height: calc(100dvh - 110px);
+        overflow: auto;
+        padding: 16px;
+        border-radius: 18px;
+      }
+    }
+
+    @media (orientation: portrait) and (max-width: 699px) {
+      .frame {
+        height: 100dvh;
+        min-height: 100dvh;
+        overflow: hidden;
+        padding: 12px 12px 12px;
+        grid-template-rows: auto minmax(0, 1fr) auto;
+        align-content: start;
+        gap: 8px;
+      }
+
+      .topbar {
+        grid-template-columns: 1fr auto;
+        grid-template-areas: "cue time";
+        gap: 8px 10px;
+        padding-bottom: 0;
+        align-items: start;
+      }
+
+      .topbar > div:first-child {
+        min-width: 0;
+        grid-area: cue;
+      }
+
+      .topbar > div:first-child > div:last-child {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+      }
+
+      .label {
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        margin-bottom: 5px;
+      }
+
+      .cue-name {
+        font-size: clamp(22px, 7.2vw, 36px);
+        white-space: normal;
+        line-height: 1.1;
+        letter-spacing: -0.05em;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        padding-bottom: 0.1em;
+      }
+
+      #headerCueNumber {
+        font-size: 16px !important;
+        align-self: flex-start;
+        padding-top: 4px;
+      }
+
+      .system-time {
+        min-width: 100px;
+        width: fit-content;
+        text-align: center;
+        font-size: 15px;
+        font-weight: 680;
+        letter-spacing: -0.02em;
+        line-height: 1;
+        grid-area: time;
+        justify-self: end;
+        align-self: start;
+        padding: 10px 11px 9px;
+        border-radius: 15px;
+        border: 1px solid rgba(255,255,255,0.13);
+        background: rgba(255,255,255,0.06);
+        box-shadow: 0 10px 24px rgba(0,0,0,0.18);
+        backdrop-filter: blur(12px);
+      }
+
+      .status-stack {
+        position: fixed;
+        right: calc(10px + env(safe-area-inset-right));
+        bottom: calc(30px + env(safe-area-inset-bottom));
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 6px;
+        grid-area: status;
+        align-self: start;
+        z-index: 11;
+      }
+
+      .status {
+        min-width: 70px;
+        padding: 6px 9px;
+        font-size: 10px;
+      }
+
+      .mode-badge {
+        padding: 5px 7px;
+        font-size: 8px;
+      }
+
+      .main {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 0;
+      }
+
+      .timer-card {
+        border-radius: 22px;
+        padding: 20px 16px;
+        min-height: 30vh;
+      }
+
+      .timer-label {
+        font-size: 12px;
+        letter-spacing: 0.14em;
+        margin-bottom: 6px;
+      }
+
+      .remaining {
+        font-size: clamp(46px, 16vw, 78px);
+        line-height: 0.94;
+        letter-spacing: -0.08em;
+      }
+
+      .progress-wrap {
+        width: 100%;
+        margin-top: 12px;
+      }
+
+      .progress-meta {
+        font-size: 9px;
+        margin-bottom: 5px;
+      }
+
+      .progress-track {
+        height: 7px;
+      }
+
+      .side {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      .small-card {
+        border-radius: 20px;
+        padding: 14px 14px;
+        min-height: 84px;
+      }
+
+      .small-title {
+        font-size: 10px;
+        letter-spacing: 0.1em;
+        margin-bottom: 5px;
+      }
+
+      .elapsed,
+      .state-value {
+        font-size: clamp(20px, 5.8vw, 30px);
+        letter-spacing: -0.05em;
+      }
+
+      .bottom {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+        padding-top: 6px;
+      }
+
+      .next-tag {
+        font-size: 10px;
+        letter-spacing: 0.12em;
+        order: 0;
+      }
+
+      .next-line {
+        gap: 6px;
+      }
+
+      .cue-number--next {
+        font-size: 12px;
+      }
+
+      .next-cue {
+        font-size: clamp(15px, 5vw, 22px);
+        white-space: normal;
+        line-height: 1.08;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        order: 2;
+      }
+
+      .connection {
+        right: calc(10px + env(safe-area-inset-right));
+        bottom: calc(6px + env(safe-area-inset-bottom));
+        max-width: 66vw;
+        font-size: 8px;
+        letter-spacing: 0.05em;
+      }
+
+      .settings-toggle {
+        left: calc(10px + env(safe-area-inset-left));
+        bottom: calc(10px + env(safe-area-inset-bottom));
+        width: 34px;
+        height: 34px;
+        font-size: 14px;
+      }
+
+      .settings-panel {
+        left: calc(10px + env(safe-area-inset-left));
+        right: calc(10px + env(safe-area-inset-right));
+        bottom: calc(52px + env(safe-area-inset-bottom));
+        width: auto;
+        max-height: calc(100dvh - 100px);
+        overflow: auto;
+        padding: 14px;
+        border-radius: 16px;
+      }
+    }
+
+    @media (max-height: 760px) and (min-width: 901px) {
+      .frame {
+        padding: 36px 48px;
+        grid-template-rows: 88px 1fr 126px;
+        gap: 20px;
+      }
+
+      .topbar {
+        gap: 18px;
+        padding-bottom: 18px;
+      }
+
+      .label {
+        font-size: 16px;
+        margin-bottom: 8px;
+      }
+
+      .cue-name {
+        font-size: clamp(34px, 4vw, 66px);
+      }
+
+      .system-time {
+        font-size: 28px;
+      }
+
+      .status {
+        min-width: 82px;
+        padding: 7px 10px;
+        font-size: 11px;
+        letter-spacing: 0.12em;
+      }
+
+      .timer-card {
+        padding: 34px 28px;
+      }
+
+      .remaining {
+        font-size: clamp(104px, 13vw, 220px);
+      }
+
+      .progress-wrap {
+        margin-top: 28px;
+      }
+
+      .side {
+        gap: 24px;
+      }
+
+      .small-card {
+        padding: 24px;
+      }
+
+      .bottom {
+        padding-top: 18px;
+        gap: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+    <div class="frame" id="app">
+      <header class="topbar">
+        <div>
+          <div class="label">Current Cue</div>
+          <div style="display:flex; align-items:baseline; gap:12px; min-width:0;">
+            <div class="cue-number" id="headerCueNumber" style="font-size:32px; font-weight:600; color:var(--blue); letter-spacing:0.05em; white-space:nowrap;">Q --</div>
+            <div class="cue-name" id="cueName">Waiting for QLab</div>
+          </div>
+        </div>
+        <div class="system-time" id="systemTime">--:--:--</div>
+        <div class="status-stack">
+          <div class="mode-badge" id="modeBadge">DIRECT MODE</div>
+          <div class="status" id="status">LIVE</div>
+        </div>
+      </header>
+
+      <main class="main">
+        <section class="timer-card">
+          <div class="timer-label">Remaining</div>
+          <div class="remaining" id="remaining">00:00</div>
+
+          <div class="progress-wrap">
+            <div class="progress-meta">
+              <span id="progressLabel">PROGRESS</span>
+              <span id="progressText">0%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-bar" id="progressBar"></div>
+            </div>
+          </div>
+        </section>
+
+        <aside class="side">
+          <section class="small-card">
+            <div class="small-title">Elapsed</div>
+            <div class="elapsed" id="elapsed">00:00</div>
+          </section>
+          <section class="small-card">
+            <div class="small-title">QLab State</div>
+            <div class="state-value" id="qlabState">IDLE</div>
+          </section>
+        </aside>
+      </main>
+
+    <footer class="bottom">
+      <div class="next-tag">Next</div>
+      <div class="next-line">
+        <div class="cue-number cue-number--next" id="nextCueNumber">Q --</div>
+        <div class="next-cue" id="nextCue">--</div>
+      </div>
+    </footer>
+    </div>
+
+  <button class="settings-toggle" id="settingsToggle" title="Settings">⚙</button>
+
+  <div class="settings-panel" id="settingsPanel">
+    <div class="settings-title">Connection Settings</div>
+    <div class="settings-row">
+      <label for="hostInput">Companion Address</label>
+      <input id="hostInput" placeholder="http://127.0.0.1:8000" />
+      <div class="settings-note" id="hostHint">Shared mode uses the current server address automatically.</div>
+    </div>
+    <div class="settings-row">
+      <label for="connectionInput">QLab Connection ID</label>
+      <input id="connectionInput" placeholder="qlabfb" />
+    </div>
+    <div class="settings-actions">
+      <button id="saveSettings">Save</button>
+      <button class="secondary" id="hideSettings">Hide</button>
+    </div>
+  </div>
+
+  <div class="connection" id="connection">Companion: connecting…</div>
+
+  <script>
+    const IS_SHARED_MODE = location.protocol !== 'file:';
+
+    const CONFIG = {
+      COMPANION_HOST: IS_SHARED_MODE
+        ? window.location.origin
+        : (localStorage.getItem('cueMonitor.companionHost') || 'http://127.0.0.1:8000'),
+      CONNECTION_ID: localStorage.getItem('cueMonitor.connectionId') || 'qlabfb',
+      POLL_MS: 100,
+      FETCH_TIMEOUT_MS: 800,
+      VARS: {
+        cueName: 'r_name',
+        cueNumber: 'r_num',
+        remainingMinutes: 'r_mm',
+        remainingSeconds: 'r_ss',
+        elapsedMinutes: 'e_mm',
+        elapsedSeconds: 'e_ss',
+        nextCue: 'n_name',
+        nextCueNumber: 'n_num'
+      }
+    };
+
+    const STATE = {
+      endpointMode: (() => {
+        const saved = Number.parseInt(localStorage.getItem('cueMonitor.endpointMode') || '', 10);
+        return Number.isInteger(saved) && saved >= 0 && saved <= 3 ? saved : null;
+      })(),
+      pollHandle: null,
+      pollGeneration: 0,
+      refreshing: false,
+      errorStreak: 0,
+      appMode: ''
+    };
+
+    const $ = (id) => document.getElementById(id);
+
+    function cleanValue(value) {
+      if (value === null || value === undefined) return '';
+      if (typeof value === 'object') {
+        if ('value' in value) return cleanValue(value.value);
+        if ('result' in value) return cleanValue(value.result);
+        if ('data' in value) return cleanValue(value.data);
+        return JSON.stringify(value);
+      }
+      return String(value).replace(/^"|"$/g, '').trim();
+    }
+
+    async function fetchText(url) {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), CONFIG.FETCH_TIMEOUT_MS);
+
+      try {
+        const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
+        if (!res.ok) throw new Error(`${res.status} ${url}`);
+        const text = await res.text();
+        try { return cleanValue(JSON.parse(text)); }
+        catch { return cleanValue(text); }
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
+    }
+
+    function setEndpointMode(mode) {
+      STATE.endpointMode = mode;
+      if (mode === null) {
+        localStorage.removeItem('cueMonitor.endpointMode');
+      } else {
+        localStorage.setItem('cueMonitor.endpointMode', String(mode));
+      }
+    }
+
+    function buildVariableUrls(variableName) {
+      const host = CONFIG.COMPANION_HOST.replace(/\/$/, '');
+      const connection = encodeURIComponent(CONFIG.CONNECTION_ID);
+      const variable = encodeURIComponent(variableName);
+      const fullName = encodeURIComponent(`${CONFIG.CONNECTION_ID}:${variableName}`);
+
+      return [
+        `${host}/api/variable/${connection}/${variable}/value`,
+        `${host}/api/variable/connection/${connection}/${variable}/value`,
+        `${host}/api/${connection}/${variable}/value`,
+        `${host}/api/variable/${fullName}/value`
+      ];
+    }
+
+    function isHtmlPayload(value) {
+      const lower = value.toLowerCase();
+      return lower.includes('<!doctype html>') || lower.includes('<html');
+    }
+
+    async function fetchSharedState() {
+      const res = await fetch('/api/state', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`${res.status} /api/state`);
+      return res.json();
+    }
+
+    async function fetchServerConfig() {
+      const res = await fetch('/api/config', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`${res.status} /api/config`);
+      return res.json();
+    }
+
+    async function saveServerConfig(companionHost, connectionId) {
+      const res = await fetch('/api/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companionHost, connectionId })
+      });
+      if (!res.ok) {
+        let message = `${res.status} /api/config`;
+        try {
+          const data = await res.json();
+          if (data && data.error) message = String(data.error);
+        } catch {
+          // ignore parse errors
+        }
+        throw new Error(message);
+      }
+      return res.json();
+    }
+
+    function connectionLabel() {
+      return IS_SHARED_MODE
+        ? `Proxy: connected · ${CONFIG.CONNECTION_ID}`
+        : `Companion: connected · ${CONFIG.CONNECTION_ID}`;
+    }
+
+    function connectionOfflineLabel() {
+      return IS_SHARED_MODE
+        ? 'Proxy: offline · check local server'
+        : 'Companion: API not matched · check host / connection id';
+    }
+
+    function updateModeBadge() {
+      const badge = $('modeBadge');
+      if (!badge) return;
+      badge.textContent = IS_SHARED_MODE ? 'SHARED PROXY' : 'DIRECT COMPANION';
+      badge.classList.toggle('shared', IS_SHARED_MODE);
+      badge.classList.toggle('direct', !IS_SHARED_MODE);
+    }
+
+    function renderSharedSnapshot(payload) {
+      if (!payload || !payload.ok || !payload.snapshot) {
+        renderOffline();
+        return;
+      }
+
+      renderSnapshot(payload.snapshot);
+      setText('connection', connectionLabel());
+    }
+
+    let sharedEventSource = null;
+
+    function startSharedMode() {
+      if (sharedEventSource) {
+        sharedEventSource.close();
+        sharedEventSource = null;
+      }
+
+      fetchSharedState()
+        .then(renderSharedSnapshot)
+        .catch(() => {
+          renderOffline();
+        });
+
+      sharedEventSource = new EventSource('/api/events');
+      const handleSharedEvent = (event) => {
+        try {
+          renderSharedSnapshot(JSON.parse(event.data));
+        } catch {
+          renderOffline();
+        }
+      };
+      sharedEventSource.addEventListener('state', handleSharedEvent);
+      sharedEventSource.onmessage = handleSharedEvent;
+      sharedEventSource.onerror = () => {
+        setText('connection', 'Proxy: reconnecting…');
+      };
+    }
+
+    async function probeCompanionEndpoint(variableName) {
+      const candidates = buildVariableUrls(variableName);
+      let lastError;
+      for (let mode = 0; mode < candidates.length; mode += 1) {
+        const url = candidates[mode];
+        try {
+          const value = await fetchText(url);
+          if (isHtmlPayload(value) || value.includes('Bitfocus Companion')) continue;
+          setEndpointMode(mode);
+          return { mode, value };
+        } catch (err) {
+          lastError = err;
+        }
+      }
+
+      throw lastError || new Error('No valid Companion variable endpoint matched');
+    }
+
+    async function getCompanionVariable(variableName, mode = STATE.endpointMode) {
+      const candidates = buildVariableUrls(variableName);
+      const urls = Number.isInteger(mode) ? [candidates[mode]] : candidates;
+      let lastError;
+
+      for (let index = 0; index < urls.length; index += 1) {
+        const url = urls[index];
+        try {
+          const value = await fetchText(url);
+          if (isHtmlPayload(value) || value.includes('Bitfocus Companion')) continue;
+          if (!Number.isInteger(mode)) {
+            setEndpointMode(index);
+          }
+          return value;
+        } catch (err) {
+          lastError = err;
+          if (Number.isInteger(mode)) break;
+        }
+      }
+
+      throw lastError || new Error('No valid Companion variable endpoint matched');
+    }
+
+    function pad2(value) {
+      const n = Number.parseInt(String(value || '0'), 10);
+      if (!Number.isFinite(n)) return '00';
+      return String(Math.max(0, n)).padStart(2, '0');
+    }
+
+    function makeTime(mm, ss) {
+      return `${pad2(mm)}:${pad2(ss)}`;
+    }
+
+    function secondsFromParts(mm, ss) {
+      const m = Number.parseInt(String(mm || '0'), 10);
+      const s = Number.parseInt(String(ss || '0'), 10);
+      if (!Number.isFinite(m) || !Number.isFinite(s)) return NaN;
+      return m * 60 + s;
+    }
+
+    function cuePrefix(num) {
+      if (!num || num === '--') return 'Q --';
+      return String(num).startsWith('Q') ? String(num) : `Q ${num}`;
+    }
+
+    function updateSystemTime() {
+      const now = new Date();
+      setText('systemTime', now.toLocaleTimeString('zh-CN', { hour12: false }));
+    }
+
+    function setText(id, value) {
+      const el = $(id);
+      const next = String(value);
+      if (el.textContent !== next) {
+        el.textContent = next;
+      }
+    }
+
+    function setAppMode(mode) {
+      if (STATE.appMode === mode) return;
+      const app = $('app');
+      app.classList.toggle('idle', mode === 'idle');
+      app.classList.toggle('warning', mode === 'warning');
+      app.classList.toggle('danger', mode === 'danger');
+      STATE.appMode = mode;
+    }
+
+    function setProgressWidth(value) {
+      const el = $('progressBar');
+      if (el.style.width !== value) {
+        el.style.width = value;
+      }
+    }
+
+    function updateProgress(elapsedSeconds, remainingSeconds, hasCue) {
+      let progress = 0;
+      const total = elapsedSeconds + remainingSeconds;
+
+      if (hasCue && Number.isFinite(total) && total > 0) {
+        progress = Math.max(0, Math.min(100, (elapsedSeconds / total) * 100));
+      }
+
+      setProgressWidth(`${progress}%`);
+      setText('progressText', `${Math.round(progress)}%`);
+    }
+
+    function setStateByRemaining(remainingSeconds, hasCue) {
+      if (!hasCue) {
+        setAppMode('idle');
+        setText('status', 'IDLE');
+        setText('qlabState', 'IDLE');
+        return;
+      }
+
+      setAppMode('');
+      setText('status', 'LIVE');
+      setText('qlabState', 'RUNNING');
+
+      if (!Number.isFinite(remainingSeconds)) return;
+      if (remainingSeconds <= 10) {
+        setAppMode('danger');
+        setText('qlabState', 'ENDING');
+      } else if (remainingSeconds <= 30) {
+        setAppMode('warning');
+        setText('qlabState', 'WARNING');
+      }
+    }
+
+    async function fetchSnapshot() {
+      const v = CONFIG.VARS;
+      let mode = STATE.endpointMode;
+      let cueName;
+
+      if (!Number.isInteger(mode)) {
+        const probe = await probeCompanionEndpoint(v.cueName);
+        mode = probe.mode;
+        cueName = probe.value;
+      } else {
+        cueName = await getCompanionVariable(v.cueName, mode);
+      }
+
+      const [cueNumber, rMM, rSS, eMM, eSS, nextCue, nextCueNumber] = await Promise.all([
+        getCompanionVariable(v.cueNumber, mode),
+        getCompanionVariable(v.remainingMinutes, mode),
+        getCompanionVariable(v.remainingSeconds, mode),
+        getCompanionVariable(v.elapsedMinutes, mode),
+        getCompanionVariable(v.elapsedSeconds, mode),
+        getCompanionVariable(v.nextCue, mode),
+        getCompanionVariable(v.nextCueNumber, mode)
+      ]);
+
+      return { cueName, cueNumber, rMM, rSS, eMM, eSS, nextCue, nextCueNumber };
+    }
+
+    function renderSnapshot(snapshot) {
+      const { cueName, cueNumber, rMM, rSS, eMM, eSS, nextCue, nextCueNumber } = snapshot;
+      const hasCue = Boolean(cueName && cueName !== '--');
+      const remaining = makeTime(rMM, rSS);
+      const elapsed = makeTime(eMM, eSS);
+      const remainingSeconds = secondsFromParts(rMM, rSS);
+      const elapsedSeconds = secondsFromParts(eMM, eSS);
+
+      setText('cueName', hasCue ? cueName : 'Waiting for QLab');
+      setText('headerCueNumber', cuePrefix(cueNumber));
+      setText('nextCueNumber', cuePrefix(nextCueNumber));
+      setText('remaining', remaining);
+      setText('elapsed', elapsed);
+      setText('nextCue', nextCue || '--');
+      setText('connection', connectionLabel());
+
+      setStateByRemaining(remainingSeconds, hasCue);
+      updateProgress(elapsedSeconds, remainingSeconds, hasCue);
+    }
+
+    function renderOffline() {
+      setText('connection', connectionOfflineLabel());
+      setText('status', 'OFF');
+      setText('qlabState', 'OFFLINE');
+      setAppMode('idle');
+    }
+
+    function getPollDelayMs() {
+      if (document.visibilityState !== 'visible') {
+        return Math.max(1000, CONFIG.POLL_MS * 6);
+      }
+
+      if (STATE.errorStreak <= 0) return CONFIG.POLL_MS;
+
+      const backoff = CONFIG.POLL_MS * (2 ** Math.min(STATE.errorStreak, 4));
+      return Math.min(5000, Math.max(CONFIG.POLL_MS, backoff));
+    }
+
+    async function refresh() {
+      if (STATE.refreshing) return null;
+      STATE.refreshing = true;
+
+      try {
+        const snapshot = await fetchSnapshot();
+        renderSnapshot(snapshot);
+        STATE.errorStreak = 0;
+        return true;
+      } catch (err) {
+        if (STATE.endpointMode !== null) {
+          setEndpointMode(null);
+          try {
+            const snapshot = await fetchSnapshot();
+            renderSnapshot(snapshot);
+            STATE.errorStreak = 0;
+            return true;
+          } catch (retryErr) {
+            void retryErr;
+          }
+        }
+
+        STATE.errorStreak = Math.min(STATE.errorStreak + 1, 6);
+        renderOffline();
+        return false;
+      } finally {
+        STATE.refreshing = false;
+      }
+    }
+
+    function startPolling(immediate = false) {
+      STATE.pollGeneration += 1;
+      const generation = STATE.pollGeneration;
+
+      if (STATE.pollHandle) {
+        window.clearTimeout(STATE.pollHandle);
+        STATE.pollHandle = null;
+      }
+
+      const tick = async () => {
+        const success = await refresh();
+        if (STATE.pollGeneration !== generation) return;
+        if (success === null) {
+          STATE.pollHandle = window.setTimeout(tick, CONFIG.POLL_MS);
+          return;
+        }
+        STATE.pollHandle = window.setTimeout(tick, getPollDelayMs());
+      };
+
+      STATE.pollHandle = window.setTimeout(tick, immediate ? 0 : getPollDelayMs());
+    }
+
+    function restartPolling() {
+      startPolling(true);
+    }
+
+    function initVisibilityHandling() {
+      if (IS_SHARED_MODE) return;
+      document.addEventListener('visibilitychange', () => {
+        restartPolling();
+      });
+    }
+
+    function initSettings() {
+      updateModeBadge();
+      setText('connection', IS_SHARED_MODE ? 'Proxy: connecting…' : 'Companion: connecting…');
+      $('hostInput').value = CONFIG.COMPANION_HOST;
+      $('connectionInput').value = CONFIG.CONNECTION_ID;
+
+      if (IS_SHARED_MODE) {
+        $('hostInput').title = 'This field changes the upstream Companion address used by the local proxy';
+        $('hostHint').textContent = 'This page saves the upstream Companion address on the local server. Other devices keep using the same dashboard URL.';
+        void fetchServerConfig()
+          .then((cfg) => {
+            if (cfg && cfg.companionHost) {
+              CONFIG.COMPANION_HOST = String(cfg.companionHost);
+              $('hostInput').value = CONFIG.COMPANION_HOST;
+            }
+            if (cfg && cfg.connectionId) {
+              CONFIG.CONNECTION_ID = String(cfg.connectionId);
+              $('connectionInput').value = CONFIG.CONNECTION_ID;
+            }
+          })
+          .catch(() => {
+            // Keep defaults if config fetch fails.
+          });
+      }
+
+      $('settingsToggle').addEventListener('click', () => {
+        $('settingsPanel').classList.toggle('open');
+      });
+
+      $('hideSettings').addEventListener('click', () => {
+        $('settingsPanel').classList.remove('open');
+      });
+
+      $('saveSettings').addEventListener('click', () => {
+        const host = $('hostInput').value.trim() || 'http://127.0.0.1:8000';
+        const id = $('connectionInput').value.trim() || 'qlabfb';
+        if (IS_SHARED_MODE) {
+          void saveServerConfig(host, id)
+            .then((cfg) => {
+              CONFIG.COMPANION_HOST = String(cfg.companionHost || host);
+              CONFIG.CONNECTION_ID = String(cfg.connectionId || id);
+              $('hostInput').value = CONFIG.COMPANION_HOST;
+              $('connectionInput').value = CONFIG.CONNECTION_ID;
+              $('hostHint').textContent = `Saved on this server. Upstream Companion is now ${CONFIG.COMPANION_HOST}.`;
+              $('settingsPanel').classList.remove('open');
+              startSharedMode();
+            })
+            .catch((err) => {
+              $('hostHint').textContent = `Save failed: ${err.message}`;
+            });
+        } else {
+          CONFIG.COMPANION_HOST = host;
+          CONFIG.CONNECTION_ID = id;
+          localStorage.setItem('cueMonitor.companionHost', host);
+          localStorage.setItem('cueMonitor.connectionId', id);
+          setEndpointMode(null);
+          $('settingsPanel').classList.remove('open');
+          $('hostHint').textContent = 'Enter the Companion address manually in direct mode.';
+          restartPolling();
+        }
+      });
+    }
+
+    initSettings();
+    initVisibilityHandling();
+    updateSystemTime();
+    setInterval(updateSystemTime, 1000);
+    if (IS_SHARED_MODE) {
+      startSharedMode();
+    } else {
+      startPolling(true);
+    }
+  </script>
+</body>
+</html>

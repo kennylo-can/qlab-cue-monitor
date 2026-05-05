@@ -1,0 +1,7 @@
+.DS_Store
+.build-app/
+.build-dmg/
+*.log
+*.dmg
+QLab Cue Monitor.app/
+QLab Cue Monitor v*.app/

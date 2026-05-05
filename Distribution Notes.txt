@@ -1,0 +1,29 @@
+QLab Cue Monitor - Installation Notes
+
+How to open on another Mac:
+1. Open the DMG.
+2. Drag "QLab Cue Monitor v4.app" into Applications.
+3. Open it once by right-clicking the app and choosing Open.
+4. If macOS shows a security warning, choose Open again in the dialog.
+
+If macOS blocks it more strictly:
+- Go to System Settings > Privacy & Security.
+- Scroll to the Security section.
+- If you see a message that the app was blocked, click Open Anyway.
+- Confirm with the password / Touch ID prompt if shown.
+
+If Finder says the app is damaged or cannot be checked:
+- Right-click the app and choose Open first.
+- If it still fails, open Terminal and run:
+  xattr -dr com.apple.quarantine "/Applications/QLab Cue Monitor v4.app"
+- Then try opening it again.
+
+If the app still will not launch:
+- Make sure the app is inside /Applications.
+- Delete any older copy before trying again.
+- Re-download the DMG if the download was interrupted.
+
+Notes:
+- This build includes its own Node runtime, so you do not need to install Node separately.
+- This build is not signed with an Apple Developer ID.
+- The app may require manual approval the first time it is opened on each Mac.
