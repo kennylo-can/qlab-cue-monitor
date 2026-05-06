@@ -15,6 +15,10 @@ QLab Cue Monitor is a local cue dashboard for live shows.
 - Mobile, tablet, and desktop responsive layout
 - Bundled Node runtime for easier distribution
 
+## Showcase
+
+![QLab Cue Monitor screenshot](./assets/screenshot-showcase.jpg)
+
 ## Quick Start
 
 ### For the dashboard server
