@@ -1,6 +1,8 @@
 # QLab Cue Monitor
 
-![QLab Cue Monitor cover](./assets/cover-source.png)
+<p align="center">
+  <img src="./assets/cover-source.png" alt="QLab Cue Monitor cover" width="900" />
+</p>
 
 QLab Cue Monitor is a local cue dashboard for live shows.
 
@@ -17,7 +19,20 @@ QLab Cue Monitor is a local cue dashboard for live shows.
 
 ## Showcase
 
-![QLab Cue Monitor screenshot](./assets/screenshot-showcase.jpg)
+<table>
+  <tr>
+    <td><img src="./assets/showcase-desktop-1.jpg" alt="QLab Cue Monitor desktop showcase" /></td>
+    <td><img src="./assets/showcase-tablet-1.jpg" alt="QLab Cue Monitor tablet showcase" /></td>
+  </tr>
+  <tr>
+    <td><img src="./assets/showcase-mobile-1.jpg" alt="QLab Cue Monitor mobile showcase 1" /></td>
+    <td><img src="./assets/showcase-mobile-2.jpg" alt="QLab Cue Monitor mobile showcase 2" /></td>
+  </tr>
+</table>
+
+<p align="center">
+  <img src="./assets/screenshot-showcase.jpg" alt="QLab Cue Monitor screenshot" width="900" />
+</p>
 
 ## Quick Start
 
