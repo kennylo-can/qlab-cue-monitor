@@ -1,0 +1,237 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A1B2C3D41F00000000000001 /* QLabOSCDashboardApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D31F00000000000001 /* QLabOSCDashboardApp.swift */; };
+		A1B2C3D41F00000000000002 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D31F00000000000002 /* AppModel.swift */; };
+		A1B2C3D41F00000000000003 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D31F00000000000003 /* AppConfig.swift */; };
+		A1B2C3D41F00000000000004 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D31F00000000000004 /* ContentView.swift */; };
+		A1B2C3D41F00000000000005 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D31F00000000000005 /* SettingsView.swift */; };
+		A1B2C3D41F00000000000006 /* LocalService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D31F00000000000006 /* LocalService.swift */; };
+		A1B2C3D41F00000000000007 /* HTTPServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D31F00000000000007 /* HTTPServer.swift */; };
+		A1B2C3D41F00000000000008 /* OSCReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D31F00000000000008 /* OSCReceiver.swift */; };
+		A1B2C3D41F00000000000009 /* DashboardState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D31F00000000000009 /* DashboardState.swift */; };
+		A1B2C3D41F0000000000000A /* index.html in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D31F0000000000000A /* index.html */; };
+		A1B2C3D41F0000000000000B /* styles.css in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D31F0000000000000B /* styles.css */; };
+		A1B2C3D41F0000000000000C /* app.js in Resources */ = {isa = PBXBuildFile; fileRef = A1B2C3D31F0000000000000C /* app.js */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A1B2C3D21F00000000000001 /* QLabOSCWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "QLabOSCWatch.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1B2C3D31F00000000000001 /* QLabOSCDashboardApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MacOSApp/QLabOSCDashboardApp.swift"; sourceTree = "<group>"; };
+		A1B2C3D31F00000000000002 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MacOSApp/AppModel.swift"; sourceTree = "<group>"; };
+		A1B2C3D31F00000000000003 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MacOSApp/AppConfig.swift"; sourceTree = "<group>"; };
+		A1B2C3D31F00000000000004 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MacOSApp/ContentView.swift"; sourceTree = "<group>"; };
+		A1B2C3D31F00000000000005 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MacOSApp/SettingsView.swift"; sourceTree = "<group>"; };
+		A1B2C3D31F00000000000006 /* LocalService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MacOSApp/LocalService.swift"; sourceTree = "<group>"; };
+		A1B2C3D31F00000000000007 /* HTTPServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MacOSApp/HTTPServer.swift"; sourceTree = "<group>"; };
+		A1B2C3D31F00000000000008 /* OSCReceiver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MacOSApp/OSCReceiver.swift"; sourceTree = "<group>"; };
+		A1B2C3D31F00000000000009 /* DashboardState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MacOSApp/DashboardState.swift"; sourceTree = "<group>"; };
+		A1B2C3D31F0000000000000A /* index.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = "MacOSApp/Resources/index.html"; sourceTree = "<group>"; };
+		A1B2C3D31F0000000000000B /* styles.css */ = {isa = PBXFileReference; lastKnownFileType = text.css; path = "MacOSApp/Resources/styles.css"; sourceTree = "<group>"; };
+		A1B2C3D31F0000000000000C /* app.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = "MacOSApp/Resources/app.js"; sourceTree = "<group>"; };
+		A1B2C3D31F0000000000000D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "MacOSApp/Info.plist"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		A1B2C3D11F00000000000001 = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D31F0000000000000D,
+				A1B2C3D31F00000000000001,
+				A1B2C3D31F00000000000002,
+				A1B2C3D31F00000000000003,
+				A1B2C3D31F00000000000004,
+				A1B2C3D31F00000000000005,
+				A1B2C3D31F00000000000006,
+				A1B2C3D31F00000000000007,
+				A1B2C3D31F00000000000008,
+				A1B2C3D31F00000000000009,
+				A1B2C3D31F0000000000000A,
+				A1B2C3D31F0000000000000B,
+				A1B2C3D31F0000000000000C,
+			);
+			sourceTree = "<group>";
+		};
+		A1B2C3D11F00000000000002 = {
+			isa = PBXGroup;
+			children = (
+				A1B2C3D21F00000000000001,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A1B2C3D01F00000000000001 /* QLabOSCWatch */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A1B2C3D51F00000000000001 /* Build configuration list for PBXNativeTarget "QLabOSCWatch" */;
+			buildPhases = (
+				A1B2C3D61F00000000000001 /* Sources */,
+				A1B2C3D61F00000000000002 /* Resources */,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = QLabOSCWatch;
+			productName = QLabOSCWatch;
+			productReference = A1B2C3D21F00000000000001 /* QLabOSCWatch.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A1B2C3D41F00000000000010 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1500;
+				LastUpgradeCheck = 1500;
+				TargetAttributes = {
+					A1B2C3D01F00000000000001 = {
+						CreatedOnToolsVersion = 15.0;
+					};
+				};
+			};
+			buildConfigurationList = A1B2C3D51F00000000000002 /* Build configuration list for PBXProject "QLabOSCWatch" */;
+			compatibilityVersion = "Xcode 15.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A1B2C3D11F00000000000001;
+			productRefGroup = A1B2C3D11F00000000000002;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A1B2C3D01F00000000000001,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A1B2C3D61F00000000000002 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1B2C3D41F0000000000000A,
+				A1B2C3D41F0000000000000B,
+				A1B2C3D41F0000000000000C,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A1B2C3D61F00000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A1B2C3D41F00000000000001,
+				A1B2C3D41F00000000000002,
+				A1B2C3D41F00000000000003,
+				A1B2C3D41F00000000000004,
+				A1B2C3D41F00000000000005,
+				A1B2C3D41F00000000000006,
+				A1B2C3D41F00000000000007,
+				A1B2C3D41F00000000000008,
+				A1B2C3D41F00000000000009,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A1B2C3D71F00000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MacOSApp/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.codex.qlaboscdashboard;
+				PRODUCT_NAME = QLabOSCWatch;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		A1B2C3D71F00000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MacOSApp/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.codex.qlaboscdashboard;
+				PRODUCT_NAME = QLabOSCWatch;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		A1B2C3D71F00000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MacOSApp/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.codex.qlaboscdashboard;
+				PRODUCT_NAME = QLabOSCWatch;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		A1B2C3D71F00000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MacOSApp/Info.plist;
+				MACOSX_DEPLOYMENT_TARGET = 13.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.codex.qlaboscdashboard;
+				PRODUCT_NAME = QLabOSCWatch;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A1B2C3D51F00000000000001 /* Build configuration list for PBXNativeTarget "QLabOSCWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1B2C3D71F00000000000001,
+				A1B2C3D71F00000000000002,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A1B2C3D51F00000000000002 /* Build configuration list for PBXProject "QLabOSCWatch" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1B2C3D71F00000000000003,
+				A1B2C3D71F00000000000004,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = A1B2C3D41F00000000000010 /* Project object */;
+}

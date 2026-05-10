@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QLab Production Dashboard</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="dashboard">
+    <header class="header">
+      <div class="workspace-name" id="workspaceName">QLab Workspace</div>
+      <div class="header-meta">
+        <div class="clock" id="wallClock">20:45:12</div>
+        <div class="status" id="status">Connecting...</div>
+      </div>
+    </header>
+
+    <section class="main-display">
+      <article class="cue-card active">
+        <div class="label">Active Now</div>
+        <div class="cue-line">
+          <span class="cue-number" id="currentCueNumber">--</span>
+          <span class="cue-name" id="currentCueName">Waiting...</span>
+        </div>
+        <div class="cue-type" id="currentCueType">-</div>
+        <div class="progress-container">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div class="timing-row">
+          <span id="elapsed">ELAPSED: --:--</span>
+          <span id="remaining">REMAINING: --:--</span>
+        </div>
+      </article>
+
+      <article class="next-cue">
+        <div class="next-info">
+          <div class="label compact">Standby</div>
+          <div class="cue-number standby" id="nextCueNumber">--</div>
+          <div class="next-name" id="nextCueName">-</div>
+        </div>
+        <div class="prewait" id="prewait">Pre-wait: --.--s</div>
+      </article>
+    </section>
+
+    <section class="footer-stats">
+      <article class="stat-box">
+        <div class="label">Timecode</div>
+        <span class="stat-value" id="timecode">--:--:--:--</span>
+      </article>
+      <article class="stat-box">
+        <div class="label">Next Cue Type</div>
+        <span class="stat-value" id="nextCueType">-</span>
+      </article>
+      <article class="stat-box">
+        <div class="label">Connection</div>
+        <span class="stat-value" id="connectionState">-</span>
+      </article>
+      <article class="stat-box">
+        <div class="label">Last Update</div>
+        <span class="stat-value small" id="latestTime">-</span>
+      </article>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QLab Production Dashboard</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="dashboard">
+      <header class="header">
+        <div class="workspace">
+          <div class="workspace-label">Workspace</div>
+          <div class="workspace-name" id="workspaceName">MAIN STAGE | AUD-SYS-01</div>
+        </div>
+        <div class="header-right">
+          <div class="status-badge" id="status">Waiting for Companion</div>
+          <div class="clock" id="wallClock">--:--:--</div>
+        </div>
+      </header>
+
+      <section class="main-display">
+        <article class="cue-card">
+          <div class="label">Active Now</div>
+          <div class="cue-head">
+            <span class="cue-number" id="currentNumber">--</span>
+            <span class="cue-name" id="currentName">Waiting for Companion…</span>
+          </div>
+          <div class="cue-meta" id="currentMeta">No cue data received yet.</div>
+          <div class="progress-container">
+            <div class="progress-bar" id="progressBar"></div>
+          </div>
+          <div class="timing-row">
+            <span id="elapsed">ELAPSED: --:--</span>
+            <span id="remaining">REMAINING: --:--</span>
+          </div>
+        </article>
+
+        <article class="next-cue">
+          <div class="next-info">
+            <div class="label compact">Standby:</div>
+            <div class="cue-number next-number" id="nextNumber">--</div>
+            <div class="next-name" id="nextName">-</div>
+          </div>
+          <div class="next-meta" id="nextMeta">Pre-wait: --</div>
+        </article>
+      </section>
+
+      <section class="footer-stats">
+        <article class="stat-box">
+          <div class="label">Timecode (LTC)</div>
+          <span class="stat-value mono" id="timecode">--:--:--:--</span>
+        </article>
+        <article class="stat-box">
+          <div class="label">Total Cues</div>
+          <span class="stat-value mono" id="totalCues">-</span>
+        </article>
+        <article class="stat-box">
+          <div class="label">Companion</div>
+          <span class="stat-value" id="serviceState">Bridge</span>
+        </article>
+        <article class="stat-box">
+          <div class="label">Master Vol</div>
+          <span class="stat-value mono" id="masterVol">-</span>
+        </article>
+      </section>
+
+      <section class="debug-grid">
+        <article class="debug-card">
+          <div class="label">最新状态</div>
+          <pre id="latestOsc">-</pre>
+        </article>
+        <article class="debug-card">
+          <div class="label">推送日志</div>
+          <div id="log" class="log"></div>
+        </article>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>
