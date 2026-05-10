@@ -96,9 +96,12 @@ const state = {
 const clients = new Set();
 const KEEPALIVE_MS = 30000;
 const BROADCAST_COALESCE_MS = 50;
+const MAX_CLIENTS = 200;
+const MAX_FRAME_BUFFER = 128 * 1024;       // 128 KB per-client frame accumulation
+const MAX_BODY_SIZE = 256 * 1024;          // 256 KB max POST body
+const BACKPRESSURE_SKIP_LIMIT = 6;         // consecutive broadcast skips before disconnect
 
 let broadcastTimer = null;
-let broadcastPending = false;
 
 // ---- WebSocket Engine ----
 
@@ -143,6 +146,8 @@ function decodeWebSocketFrame(buffer) {
     offset = 10;
   }
 
+  if (len > MAX_FRAME_BUFFER) return null;
+
   const maskOffset = offset;
   if (masked) offset += 4;
 
@@ -159,24 +164,36 @@ function decodeWebSocketFrame(buffer) {
   return { opcode, payload: payload.toString('utf8'), consumed: offset + len };
 }
 
-function sendFrame(socket, frame) {
-  if (socket.writable && !socket.destroyed) {
-    socket.write(frame);
+function tryWrite(socket, frame) {
+  if (!socket.writable || socket.destroyed) return false;
+  if (socket._backpressure) return false;
+  const ok = socket.write(frame);
+  if (!ok) {
+    socket._backpressure = true;
+    socket._skipCount = (socket._skipCount || 0) + 1;
+    if (socket._skipCount >= BACKPRESSURE_SKIP_LIMIT) {
+      dropClient(socket);
+    }
+  } else {
+    socket._skipCount = 0;
   }
+  return ok;
+}
+
+function dropClient(socket) {
+  clients.delete(socket);
+  try { socket.destroy(); } catch {}
 }
 
 function broadcast() {
   if (broadcastTimer) return;
   broadcastTimer = setTimeout(() => {
     broadcastTimer = null;
+    if (clients.size === 0) return;
     const text = JSON.stringify(state);
     const frame = encodeWebSocketFrame(text);
     for (const socket of clients) {
-      try {
-        sendFrame(socket, frame);
-      } catch {
-        clients.delete(socket);
-      }
+      tryWrite(socket, frame);
     }
   }, BROADCAST_COALESCE_MS);
 }
@@ -186,27 +203,34 @@ function broadcastImmediate() {
     clearTimeout(broadcastTimer);
     broadcastTimer = null;
   }
+  if (clients.size === 0) return;
   const text = JSON.stringify(state);
   const frame = encodeWebSocketFrame(text);
   for (const socket of clients) {
-    try {
-      sendFrame(socket, frame);
-    } catch {
-      clients.delete(socket);
-    }
+    tryWrite(socket, frame);
   }
 }
 
 // ---- WebSocket Ping/Pong Heartbeat ----
 
-function setupHeartbeat(socket) {
+function setupClient(socket) {
   socket.isAlive = true;
   socket._heartbeatMisses = 0;
+  socket._backpressure = false;
+  socket._skipCount = 0;
+  socket._frameBuffer = Buffer.alloc(0);
 
   socket.on('pong', () => {
     socket.isAlive = true;
     socket._heartbeatMisses = 0;
   });
+
+  socket.on('drain', () => {
+    socket._backpressure = false;
+  });
+
+  socket.on('close', () => dropClient(socket));
+  socket.on('error', () => dropClient(socket));
 }
 
 function checkHeartbeats() {
@@ -214,17 +238,23 @@ function checkHeartbeats() {
     if (!socket.isAlive) {
       socket._heartbeatMisses = (socket._heartbeatMisses || 0) + 1;
       if (socket._heartbeatMisses >= 3) {
-        clients.delete(socket);
-        socket.destroy();
+        dropClient(socket);
         continue;
       }
     }
     socket.isAlive = false;
     try {
-      socket.write(encodeWebSocketFrame(Buffer.alloc(0), 0x09));
+      const ok = socket.write(encodeWebSocketFrame(Buffer.alloc(0), 0x09));
+      if (!ok) {
+        socket._skipCount = (socket._skipCount || 0) + 1;
+        if (socket._skipCount >= BACKPRESSURE_SKIP_LIMIT) {
+          dropClient(socket);
+        }
+      } else {
+        socket._skipCount = 0;
+      }
     } catch {
-      clients.delete(socket);
-      socket.destroy();
+      dropClient(socket);
     }
   }
 }
@@ -245,13 +275,17 @@ function shutdown(code = 0) {
   state.service.shutdownRequested = true;
   broadcastImmediate();
 
+  // Send close frames to all clients, then exit
   setTimeout(() => {
-    try {
-      server.close(() => process.exit(code));
-    } catch {
-      process.exit(code);
+    for (const socket of clients) {
+      try { socket.write(encodeWebSocketFrame(Buffer.alloc(0), 0x08)); } catch {}
+      try { socket.end(); } catch {}
     }
-  }, 200);
+    clients.clear();
+    setTimeout(() => {
+      try { server.close(() => process.exit(code)); } catch { process.exit(code); }
+    }, 100);
+  }, BROADCAST_COALESCE_MS + 50);
 }
 
 function applyConfigPatch(patch) {
@@ -351,12 +385,16 @@ const server = http.createServer((req, res) => {
 
   // Health check
   if (url === '/api/health' || url === '/health') {
+    let backpressuredCount = 0;
+    for (const s of clients) { if (s._backpressure) backpressuredCount++; }
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
     res.end(JSON.stringify({
       ok: true,
       service: state.service,
       source: state.source,
       clients: clients.size,
+      maxClients: MAX_CLIENTS,
+      backpressured: backpressuredCount,
     }));
     return;
   }
@@ -365,9 +403,18 @@ const server = http.createServer((req, res) => {
   if (url === '/api/state') {
     if (req.method === 'POST' || req.method === 'PUT') {
       let body = '';
-      req.on('data', (chunk) => { body += chunk; });
+      let bodySize = 0;
+      req.on('data', (chunk) => {
+        bodySize += chunk.length;
+        if (bodySize <= MAX_BODY_SIZE) body += chunk;
+      });
       req.on('end', () => {
         try {
+          if (bodySize > MAX_BODY_SIZE) {
+            res.writeHead(413, { 'Content-Type': 'application/json; charset=utf-8' });
+            res.end(JSON.stringify({ ok: false, error: 'Payload too large' }));
+            return;
+          }
           if (!body || body.trim().length === 0) {
             res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
             res.end(JSON.stringify({ ok: false, error: 'Empty body' }));
@@ -400,9 +447,18 @@ const server = http.createServer((req, res) => {
   // Settings
   if (url === '/api/settings' && req.method === 'POST') {
     let body = '';
-    req.on('data', (chunk) => { body += chunk; });
+    let bodySize = 0;
+    req.on('data', (chunk) => {
+      bodySize += chunk.length;
+      if (bodySize <= MAX_BODY_SIZE) body += chunk;
+    });
     req.on('end', () => {
       try {
+        if (bodySize > MAX_BODY_SIZE) {
+          res.writeHead(413, { 'Content-Type': 'application/json; charset=utf-8' });
+          res.end(JSON.stringify({ ok: false, error: 'Payload too large' }));
+          return;
+        }
         const patch = JSON.parse(body || '{}');
         applyConfigPatch(patch);
         broadcast();
@@ -479,6 +535,19 @@ server.on('upgrade', (req, socket, head) => {
     socket.destroy();
     return;
   }
+
+  if (clients.size >= MAX_CLIENTS) {
+    console.warn(`[WS] Connection refused: at capacity (${MAX_CLIENTS})`);
+    socket.write(
+      'HTTP/1.1 503 Service Unavailable\r\n' +
+      'Content-Type: text/plain\r\n' +
+      'Connection: close\r\n\r\n' +
+      `Server at capacity (max ${MAX_CLIENTS} clients). Try again later.`
+    );
+    try { socket.end(); } catch {}
+    return;
+  }
+
   const accept = crypto
     .createHash('sha1')
     .update(key + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11')
@@ -494,23 +563,31 @@ server.on('upgrade', (req, socket, head) => {
   socket.write(headers.join('\r\n'));
 
   clients.add(socket);
-  setupHeartbeat(socket);
+  setupClient(socket);
 
   // Handle incoming WebSocket frames
-  let frameBuffer = Buffer.alloc(0);
   socket.on('data', (chunk) => {
-    frameBuffer = Buffer.concat([frameBuffer, chunk]);
+    const buffer = socket._frameBuffer
+      ? Buffer.concat([socket._frameBuffer, chunk])
+      : chunk;
 
-    const frame = decodeWebSocketFrame(frameBuffer);
-    if (!frame) return;
+    if (buffer.length > MAX_FRAME_BUFFER) {
+      dropClient(socket);
+      return;
+    }
 
-    frameBuffer = frameBuffer.slice(frame.consumed);
+    const frame = decodeWebSocketFrame(buffer);
+    if (!frame) {
+      if (buffer.length > MAX_FRAME_BUFFER) dropClient(socket);
+      else socket._frameBuffer = buffer;
+      return;
+    }
+
+    socket._frameBuffer = buffer.slice(frame.consumed);
 
     // Ping → Pong
     if (frame.opcode === 0x09) {
-      try {
-        socket.write(encodeWebSocketFrame(Buffer.from(frame.payload), 0x0A));
-      } catch {}
+      tryWrite(socket, encodeWebSocketFrame(Buffer.from(frame.payload), 0x0A));
       return;
     }
 
@@ -522,11 +599,9 @@ server.on('upgrade', (req, socket, head) => {
 
     // Close frame
     if (frame.opcode === 0x08) {
-      clients.delete(socket);
-      try {
-        socket.write(encodeWebSocketFrame(Buffer.alloc(0), 0x08));
-      } catch {}
+      tryWrite(socket, encodeWebSocketFrame(Buffer.alloc(0), 0x08));
       try { socket.end(); } catch {}
+      dropClient(socket);
       return;
     }
 
@@ -535,17 +610,14 @@ server.on('upgrade', (req, socket, head) => {
       try {
         const cmd = JSON.parse(frame.payload);
         if (cmd.type === 'getState') {
-          socket.write(encodeWebSocketFrame(JSON.stringify(state)));
+          tryWrite(socket, encodeWebSocketFrame(JSON.stringify(state)));
         }
       } catch {}
     }
   });
 
-  socket.on('close', () => clients.delete(socket));
-  socket.on('error', () => clients.delete(socket));
-
   // Send current state on connect
-  socket.write(encodeWebSocketFrame(JSON.stringify(state)));
+  tryWrite(socket, encodeWebSocketFrame(JSON.stringify(state)));
 });
 
 // ---- Port Conflict Handling ----
