@@ -21,6 +21,8 @@ const els = {
   log: $('log'),
 };
 
+let logCount = 0;
+
 function escapeHtml(text) {
   return String(text)
     .replaceAll('&', '&amp;')
@@ -44,20 +46,25 @@ function render(state = {}) {
 
   const connection = state.connectionState || 'WAITING FOR COMPANION';
   els.status.textContent = connection;
-  els.status.style.color = connection.toUpperCase().includes('CONNECTED') ? 'var(--active)' : 'var(--standby)';
+  els.status.style.color = connection.toUpperCase().includes('CONNECTED')
+    ? 'var(--active)'
+    : connection.toUpperCase().includes('DISCONNECTED')
+    ? 'var(--warning)'
+    : 'var(--standby)';
 
   els.workspaceName.textContent = `${state.workspaceName || 'MAIN STAGE'} · ${state.cueListName || 'Default Cue List'}`;
-  els.serviceState.textContent = `${service.sourceName || 'Companion'} ${service.connected ? 'CONNECTED' : 'WAITING'}`;
+  els.serviceState.textContent = `${service.sourceName || 'Companion'} ${state.source && state.source.connected ? 'CONNECTED' : 'WAITING'}`;
 
   els.currentNumber.textContent = current.number || current.id || '--';
-  els.currentName.textContent = current.name || 'Waiting for Companion…';
+  els.currentName.textContent = current.name || 'Waiting for data…';
   els.currentMeta.textContent = [
     current.type ? `Type: ${current.type}` : null,
     current.id ? `ID: ${current.id}` : null,
     current.path ? `Path: ${current.path}` : null,
     current.color ? `Color: ${current.color}` : null,
     current.listName ? `List: ${current.listName}` : null,
-  ].filter(Boolean).join('  ·  ') || 'No cue metadata received yet.';
+    current.preWait ? `Pre-wait: ${current.preWait}` : null,
+  ].filter(Boolean).join('  ·  ') || 'No cue metadata yet.';
 
   const progress = Number(state.progress ?? 0);
   els.progressBar.style.width = `${Math.max(0, Math.min(100, progress))}%`;
@@ -66,49 +73,106 @@ function render(state = {}) {
 
   els.nextNumber.textContent = next.number || next.id || '--';
   els.nextName.textContent = next.name || '-';
-  els.nextMeta.textContent = next.preWait ? `Pre-wait: ${next.preWait}` : 'Pre-wait: --';
+  els.nextMeta.textContent = next.preWait
+    ? `Pre-wait: ${next.preWait}`
+    : !next.number && !next.id
+    ? 'Pre-wait: --'
+    : els.nextMeta.textContent;
 
   els.timecode.textContent = state.timecode || '--:--:--:--';
   els.totalCues.textContent = state.totalCues ?? '-';
   els.masterVol.textContent = state.masterVol ?? '-';
 
   els.latestOsc.textContent = state.latestOsc ? JSON.stringify(state.latestOsc, null, 2) : '-';
-  els.log.innerHTML = '';
-  for (const item of state.log || []) {
-    const row = document.createElement('div');
-    row.className = 'log-item';
-    row.innerHTML = `<span class="log-time">${new Date(item.time).toLocaleTimeString()}</span><span>${escapeHtml(item.message)}</span>`;
-    els.log.appendChild(row);
+
+  // Smart log rendering: only add new entries, don't rebuild
+  const logEntries = state.log || [];
+  if (logEntries.length > logCount) {
+    const newEntries = logEntries.slice(logCount);
+    for (const item of newEntries) {
+      const row = document.createElement('div');
+      row.className = 'log-item';
+      row.innerHTML = `<span class="log-time">${new Date(item.time).toLocaleTimeString()}</span><span>${escapeHtml(item.message)}</span>`;
+      els.log.prepend(row);
+    }
+    logCount = logEntries.length;
+    // Keep max 50 log items in DOM
+    while (els.log.children.length > 50) {
+      els.log.lastChild.remove();
+    }
+  } else if (logEntries.length < logCount) {
+    // Log was cleared
+    els.log.innerHTML = '';
+    logCount = 0;
   }
 }
 
-async function fetchState() {
-  try {
-    const res = await fetch('/api/state', { cache: 'no-store' });
-    if (!res.ok) return;
-    render(await res.json());
-  } catch {}
-}
+// ---- WebSocket with auto-reconnect ----
+
+let socket = null;
+let reconnectDelay = 500;
+const MAX_RECONNECT_DELAY = 15000;
+let firstRenderDone = false;
 
 function connectSocket() {
+  if (socket && socket.readyState === WebSocket.OPEN) return;
+
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const socket = new WebSocket(`${protocol}//${location.host}`);
+  socket = new WebSocket(`${protocol}//${location.host}`);
+
+  socket.onopen = () => {
+    reconnectDelay = 500;
+    if (!firstRenderDone) {
+      // Skip the HTTP fetch since WS will deliver state immediately
+      firstRenderDone = true;
+    }
+  };
+
   socket.onmessage = (event) => {
     try {
       render(JSON.parse(event.data));
+      firstRenderDone = true;
     } catch {}
   };
+
   socket.onclose = () => {
+    socket = null;
     els.status.textContent = 'DISCONNECTED';
     els.status.style.color = 'var(--warning)';
+    scheduleReconnect();
   };
+
+  socket.onerror = () => {
+    socket?.close();
+  };
+}
+
+function scheduleReconnect() {
+  const delay = reconnectDelay;
+  reconnectDelay = Math.min(reconnectDelay * 1.5, MAX_RECONNECT_DELAY);
+  setTimeout(connectSocket, delay);
+}
+
+// ---- Initialization ----
+
+// Only fetch via HTTP as fallback; WebSocket is the primary data source
+async function initialFetch() {
+  try {
+    const res = await fetch('/api/state', { cache: 'no-store' });
+    if (!res.ok) return;
+    // Render only if WS hasn't arrived yet
+    if (!firstRenderDone) {
+      render(await res.json());
+      firstRenderDone = true;
+    }
+  } catch {}
 }
 
 function tickClock() {
   els.wallClock.textContent = new Date().toTimeString().split(' ')[0];
 }
 
-fetchState();
+initialFetch();
 connectSocket();
 tickClock();
 setInterval(tickClock, 1000);

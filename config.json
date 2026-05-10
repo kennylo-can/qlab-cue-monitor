@@ -1,11 +1,9 @@
 {
   "host": "0.0.0.0",
   "port": 8088,
-  "oscPort": 53000,
-  "qlabHost": "localhost",
-  "qlabPort": 53000,
-  "qlabWorkspace": "",
-  "qlabPasscode": "4477",
+  "sourcePort": 53000,
+  "sourceName": "Companion",
   "workspaceName": "QLab Workspace",
+  "cueListName": "Default Cue List",
   "title": "QLab Production Dashboard"
 }
