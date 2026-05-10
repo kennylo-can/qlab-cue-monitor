@@ -1,84 +1,85 @@
-# Direct QLab OSC Research — Architecture Comparison
+# Direct QLab OSC Dashboard — Architecture Research
 
-## Three Approaches Tested
-
-### A. Current (Baseline): Passive OSC Listener + HTTP Polling
-- OSC Receiver passively listens, pattern-matches address substrings
-- HTTP server serves `/api/state` JSON
-- Browser polls every 500ms via `fetch()`
-- DashboardState singleton with no thread safety (data race)
-- OSCSender creates new NWConnection per send
-
-**Problems:** No `/updates` subscription → unreliable state. HTTP polling wastes bandwidth/latency. Data race. Crash-prone port parsing.
-
-### B. WebSocket-Direct: QLab OSC Client + WebSocket Push
-Files: `QLabOSCClient.swift` + `DashboardBridge.swift` + `DirectQLabOrchestrator.swift`
+## Current Architecture (Phase 2)
 
 ```
-                   ┌──────────────┐
- [QLab :53000] ───┤ QLabOSCClient │── subscribe /updates, /listen, /alwaysReply
-                   │ (full proto) │── send GO/Pause/Stop with /reply feedback
-                   └──────┬───────┘
-                          │ delegate callbacks
-                   ┌──────▼──────────┐
-                   │ Orchestrator     │── manage state (CueSnapshot)
-                   │                  │── wire OSC ↔ WebSocket
-                   └──────┬──────────┘
-                          │ push state JSON
-                   ┌──────▼──────────┐
-                   │ WebSocket Server │── serve HTML/CSS/JS
-                   │ (port :8088)     │── broadcast state to all clients
-                   └──────┬──────────┘
-                          │ long-lived WS
-                   ┌──────▼──┐
-                   │ Browser │ ── real-time DOM update (no polling)
-                   └─────────┘
+QLab :53000 ←→ QLabOSCClient (raw OSC send/recv, all types)
+                ↓
+           QLabDataProvider (subscription lifecycle)
+                │  /updates 1     → push notifications
+                │  /alwaysReply 1 → reply for every query
+                │  /listen        → show control events (GO, stop, etc.)
+                │  /forgetMeNot 1 → keepalive (no 61s disconnect)
+                │  poll 1s        → /cue/active/actionElapsed, percentActionElapsed
+                │
+                │  Reply handler:
+                │   /reply/{addr} {"status":"ok","data":"..."}
+                │   → maps to CueSnapshot fields
+                │
+                │  Update handler:
+                │   /update/workspace/{id}/cue_id/{id}
+                │   → triggers refetch of active + playhead cues
+                │
+                │  Event handler:
+                │   /qlab/event/workspace/go "1" "Intro" "abc" "Audio"
+                │   → logs + triggers refetch
+                ↓ delegate callbacks
+          DirectQLabOrchestrator (@Published CueSnapshot)
+                ↓ Combine sink / WebSocket broadcast
+    ┌──────────┼──────────┐
+    │           │          │
+NativeDashboard   WebSocket → Browser (real-time, no polling)
 ```
 
-**Advantages:**
-- Proper `/updates` subscription + `/reply` feedback → reliable state
-- WebSocket push → zero-polling, sub-50ms latency
-- Multi-client broadcast (production team on phones/tablets)
-- Full OSC protocol support (int/float/bool types, JSON replies)
-- `/forgetMeNot` keepalive (no 61s disconnect)
-- Show control `/listen` for event stream (GO/Stop/Panic events)
+## QLab OSC Protocol Integration
 
-### C. Pure SwiftUI Native: No Web at All
-File: `NativeDashboardView.swift`
+### Connection Flow (fully implemented)
+1. TCP connect to QLab :53000
+2. `/workspace/{id}/connect {passcode}` → authenticate
+3. On "ok" reply:
+   - `/alwaysReply 1` → replies for all queries
+   - `/updates 1` → push notifications when cue/workspace changes
+   - `/listen` → show control events (GO, stop, cue start/stop)
+   - `/forgetMeNot 1` → keepalive + `/thump` every 30s
+4. Initial data dump:
+   - `/cue/active/name`, `/cue/active/number`, `/cue/active/type`
+   - `/cue/playhead/name`, `/cue/playhead/number`, `/cue/playhead/type`
+   - `/currentCueList`
+5. Periodic poll (1s): `/cue/active/actionElapsed`, `/cue/active/percentActionElapsed`
 
-**Advantages:**
-- Lowest possible latency (no serialization)
-- Native macOS appearance
-- No browser dependency
+### Reply Data Parsing
+QLab replies are JSON strings:
+```json
+{"status":"ok","data":"Intro Music"}     // name, number, type
+{"status":"ok","data":12.5}               // elapsed, progress
+{"status":"ok","data":"1"}               // cue list number
+```
+Data types handled: `String`, `Double`, `Int`, auto-converted to CueSnapshot fields.
 
-**Drawbacks:**
-- macOS only (no phone/tablet monitoring)
-- Needs a separate mechanism for remote devices if needed
+### Update Push (invalidation-based)
+QLab sends `/update/workspace/{id}/cue_id/{id}` — does NOT contain the data.
+We respond by re-querying `/cue/active/*` and `/cue/playhead/*`.
+This avoids stale state without polling everything.
 
----
+### Show Control Events
+- `go` → log + refetch active/playhead after 300ms
+- `stop`, `pauseAll`, `resumeAll` → log
+- `cue/start`, `cue/stop` → log + refetch
 
-## Recommendation: Approach B (WebSocket-Direct)
-
-This is the best architecture because:
-1. **Proper QLab OSC integration** — `/updates` subscription, `/reply` parsing, `/listen` events
-2. **Real-time push** — WebSocket eliminates polling, sub-100ms updates
-3. **Multi-device** — any device on the local network can monitor
-4. **Clean separation** — `QLabOSCClient` is protocol-only, `Orchestrator` is wiring, `DashboardBridge` is transport
-5. **Optionally add native view** — `NativeDashboardView` can coexist with the WebSocket bridge
-
-## Files in this Research Branch
+## Files
 
 | File | Purpose |
 |------|---------|
-| `MacOSApp/QLabOSCClient.swift` | Full QLab OSC client: subscribe, reply, events, keepalive, all cue actions, full encoder/parser |
-| `MacOSApp/DashboardBridge.swift` | Hybrid HTTP+WebSocket server: serves dashboard HTML, upgrades to WS for live push |
-| `MacOSApp/DirectQLabOrchestrator.swift` | Wires QLabOSCClient ↔ WebSocket bridge, manages CueSnapshot state |
-| `MacOSApp/NativeDashboardView.swift` | Pure SwiftUI dashboard proof-of-concept (no web) |
+| `MacOSApp/QLabOSCClient.swift` | Raw OSC transport: encode, decode, send, receive, NWConnection |
+| `MacOSApp/QLabDataProvider.swift` | **NEW** — Subscription lifecycle, reply parsing, update/event handling, periodic poll |
+| `MacOSApp/DirectQLabOrchestrator.swift` | **REWRITE** — Wires QLabDataProvider ↔ WebSocket bridge, ObservableObject |
+| `MacOSApp/DashboardBridge.swift` | Hybrid HTTP+WebSocket server with embedded dashboard HTML/JS/CSS |
+| `MacOSApp/NativeDashboardView.swift` | Pure SwiftUI dashboard (proof-of-concept, observes orchestrator via Combine) |
 
-## Migration Path
+## Key Design Decisions
 
-1. Replace `OSCReceiver` + `DashboardState` with `QLabOSCClient`
-2. Replace `HTTPServer` with `DashboardBridge` (WebSocket instead of polling)
-3. Keep `AppModel` but simplify — it becomes mostly config + UI state
-4. Existing `ContentView` can embed `NativeDashboardView` in center panel
-5. Remote browsers connect to `http://host:8088` for the WebSocket dashboard
+1. **Subscription-driven, not polling-driven**: Rely on `/updates` push for state changes, only poll volatile data (elapsed, progress) at 1s
+2. **Invalidation model**: When QLab pushes an update notification, refetch the specific data we need (not full workspace)
+3. **JSON reply parsing**: QLab wraps replies in `{"status":"ok","data":...}`, we unwrap and type-convert
+4. **Sequenced startup**: auth → subscribe → dump → poll, with 200-400ms delays between phases
+5. **Thread safety**: OSC queue → state queue → main queue for UI

@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 // MARK: - Pure SwiftUI Dashboard (no web browser needed)
 
@@ -263,15 +264,14 @@ final class NativeDashboardVM: ObservableObject {
     @Published var logs: [String] = []
 
     var orchestrator: DirectQLabOrchestrator?
-
-    private var timer: Timer?
+    private var cancellables = Set<AnyCancellable>()
 
     func start() {
         let config = AppConfig.load()
         let profile = config.profiles.first ?? QLabProfile(name: "Default", host: "127.0.0.1", port: 53000, passcode: "")
         workspaceName = profile.workspace.isEmpty ? "QLab Dashboard" : profile.workspace
 
-        orchestrator = DirectQLabOrchestrator(
+        let orch = DirectQLabOrchestrator(
             host: profile.host,
             port: profile.port,
             useTCP: config.useTCP,
@@ -279,42 +279,45 @@ final class NativeDashboardVM: ObservableObject {
             workspace: profile.workspace,
             webPort: config.webPort
         )
-        orchestrator?.start()
+        orchestrator = orch
 
-        // Poll WebSocketState for updates (shared between WebSocket bridge and native)
-        timer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
-            self?.refresh()
-        }
+        orch.$snapshot
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] snap in
+                self?.currentCueName = snap.currentCueName
+                self?.currentCueNumber = snap.currentCueNumber
+                self?.currentCueType = snap.currentCueType
+                self?.nextCueName = snap.nextCueName
+                self?.nextCueNumber = snap.nextCueNumber
+                self?.nextCueType = snap.nextCueType
+                self?.timecode = snap.timecode
+                self?.countdown = snap.countdown
+                self?.elapsed = snap.elapsed
+                self?.progress = snap.progress
+            }
+            .store(in: &cancellables)
+
+        orch.$connectionState
+            .receive(on: DispatchQueue.main)
+            .assign(to: \.connectionState, on: self)
+            .store(in: &cancellables)
+
+        orch.$logs
+            .receive(on: DispatchQueue.main)
+            .assign(to: \.logs, on: self)
+            .store(in: &cancellables)
+
+        orch.start()
     }
 
     func stop() {
-        timer?.invalidate()
+        cancellables.removeAll()
         orchestrator?.stop()
+        orchestrator = nil
     }
 
     func restart() {
         stop()
         start()
-    }
-
-    private func refresh() {
-        let state = WebSocketState.shared.currentState()
-        DispatchQueue.main.async {
-            self.currentCueName = state["currentCueName"] as? String ?? ""
-            self.currentCueNumber = state["currentCueNumber"] as? String ?? ""
-            self.currentCueType = state["currentCueType"] as? String ?? ""
-            self.nextCueName = state["nextCueName"] as? String ?? ""
-            self.nextCueNumber = state["nextCueNumber"] as? String ?? ""
-            self.nextCueType = state["nextCueType"] as? String ?? ""
-            self.timecode = state["timecode"] as? String ?? "--:--:--:--"
-            self.countdown = state["countdown"] as? String ?? "--:--"
-            self.elapsed = state["elapsed"] as? String ?? "--:--"
-            self.progress = state["progress"] as? Double ?? 0
-            self.connectionState = state["connectionState"] as? String ?? "WAITING"
-
-            if let events = state["eventLog"] as? [String], events != self.logs {
-                self.logs = events
-            }
-        }
     }
 }
